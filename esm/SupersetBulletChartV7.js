@@ -49,10 +49,14 @@ export default function SupersetBulletChartV7(props) {
     height,
     width,
     colorScheme,
-    bulletColorScheme
+    bulletColorScheme,
+    orderDesc
   } = props;
   var dataToRender;
-  var rootElem = /*#__PURE__*/createRef(); // custom colors theme
+  var dataToRenderOne;
+  var rootElem = /*#__PURE__*/createRef(); // console.log('props', props);
+
+  orderDesc ? data.sort((a, b) => b.orderby - a.orderby) : data.sort((a, b) => a.orderby - b.orderby); // custom colors theme
 
   var customColors;
   var colorsValues = categorialSchemeRegistry.values();
@@ -68,8 +72,9 @@ export default function SupersetBulletChartV7(props) {
 
   if (findLegendColorScheme[0]) {
     legendBulletColor = [...findLegendColorScheme[0].colors];
-  } // find records having percentage less than 5
+  }
 
+  legendBulletColor = ['#FAE849', '#CDDA47', '#92C557', '#58B25C', '#139C8F', '#13BED4', '#15ACF1', '#329CF0', '#4D5DB8', '#7047B9', '#A136B3', '#E72F6E', '#F14F43', '#FB6131', '#FB9E14', '#FBC319', '#006262', '#004242', '#536872', '#6E7F80', '#838996', '#8DA399']; // find records having percentage less than 5
 
   function findMaricPossibleLessThanFive(data) {
     return data.filter(d => d.percent < 5);
@@ -110,6 +115,7 @@ export default function SupersetBulletChartV7(props) {
         metricvalue: umv.metricvalue,
         company: umv.company,
         period: umv.period,
+        orderby: umv.orderby,
         cumulative: cumulative - umv.metricpossiblevalues,
         companies: uniqueCompanyValues.filter(ucv => ucv.metricvalue === umv.metricvalue)
       }, {
@@ -130,6 +136,7 @@ export default function SupersetBulletChartV7(props) {
         metricvalue: d.metricvalue,
         company: d.company,
         period: d.period,
+        orderby: d.orderby,
         companies: d.companies,
         metricpossible: d.metricpossiblevalues,
         percent: (d.metricpossiblevalues / total * 100).toFixed(2)
@@ -153,14 +160,16 @@ export default function SupersetBulletChartV7(props) {
   useEffect(() => {
     // const root = rootElem.current as HTMLElement;
     d3.select('#graphic').selectAll('svg').remove();
+    d3.select('#graphic').selectAll('.checkboxes').remove();
     /*  d3.selectAll('input').remove();
      d3.selectAll('span').remove();
      d3.selectAll('label').remove(); */
 
     dataToRender = [...calculatedData];
+    console.log('dataToRender, dataToRender', dataToRender, dataToRender);
     render(dataToRender, dataToRender);
     selected = true;
-  }, [props, data, height, width, colorScheme, bulletColorScheme, dataToRender]);
+  }, [props, data, height, width, colorScheme, bulletColorScheme]);
   var records = addYearToRecord(props.data);
   var uniqueCompanies = createUniqueArray(records, 'company');
   uniqueCompanies = assignColorToCompany(uniqueCompanies, legendBulletColor);
@@ -196,10 +205,12 @@ export default function SupersetBulletChartV7(props) {
     var totalOriginal = d3.sum(_data, d => d.metricpossiblevalues);
     var calculatedData = calculateData(updatedData, total);
     var calculatedDataOriginal = calculateData(_data, totalOriginal);
-    var indicatorData = [...calculatedData];
-    var calculatedDataOriginalCopy = [...calculatedDataOriginal];
+    dataToRenderOne = [...calculatedData];
+    dataToRender = [...calculatedDataOriginal];
     d3.select('#graphic').selectAll('svg').remove();
-    render(calculatedDataOriginalCopy, indicatorData);
+    d3.select('#graphic').selectAll('.checkboxes').remove(); // console.log('dataToRender, dataToRenderOne', dataToRender, dataToRenderOne);
+
+    render(dataToRender, dataToRenderOne);
   }; // add remove company from data on checkbox update
 
 
@@ -290,22 +301,31 @@ export default function SupersetBulletChartV7(props) {
       });
     };
 
-    var getXAsPerOriginalData = (dt, count, innerndicatorIndex) => {
+    var previousWidth = 0;
+
+    var getXAsPerOriginalData = (dt, count, dtIndex, innerndicatorIndex) => {
       var filteredValue = data.filter(d => d.metricvalue === dt.metricvalue);
-      return Math.abs(xScale(filteredValue[0].cumulative) + xScale(filteredValue[0].metricpossiblevalues) / 2 + (count + innerndicatorIndex * 10)); // return (xScale(dt.cumulative)! + xScale(dt.metricpossiblevalues)! / 2) + (count  + (innerndicatorIndex * 10));
+      var x = Math.abs(xScale(filteredValue[0].cumulative) + xScale(filteredValue[0].metricpossiblevalues) / 2);
+      previousWidth = x;
+
+      if (previousWidth !== x) {
+        previousWidth = x;
+      }
+
+      return x + innerndicatorIndex * 10; // return (xScale(dt.cumulative)! + xScale(dt.metricpossiblevalues)! / 2) + (count  + (innerndicatorIndex * 10));
     }; // set up scales for horizontal placement
 
 
     var xScale = d3Scale.scaleLinear().domain([0, total]).range([0, w - 20]);
     var selection = d3.select('#graphic').append('svg').attr('id', '#svg' + 1).attr('width', w).attr('height', h).append('g').attr('transform', 'translate(' + config.margin.left + ',' + config.margin.top + ')'); // stack rect for each data value
 
-    selection.selectAll('rect').data(data).enter().append('rect').attr('class', 'rect-stacked').attr('x', d => xScale(d.cumulative) - 12).attr('y', 20).attr('height', config.barHeight).attr('width', d => xScale(d.metricpossiblevalues)).style('fill', (d, i) => customColors[i + 4]).text(d => config.f(d.percent) < 5 ? config.f(d.percent) + '%, ' + ' ' + d.metricpossiblevalues : config.f(d.percent) + '%');
+    selection.selectAll('rect').data(data).enter().append('rect').attr('class', 'rect-stacked').attr('x', d => xScale(d.cumulative)).attr('y', 20).attr('height', config.barHeight).attr('width', d => xScale(d.metricpossiblevalues)).style('fill', (d, i) => customColors[i + 4]).text(d => config.f(d.percent) < 5 ? config.f(d.percent) + '%, ' + ' ' + d.metricpossiblevalues : config.f(d.percent) + '%');
     var count = 0;
     indicatorData.map((dt, dtIndex) => {
       selection.selectAll('.indicator-row-two' + count).data(dt.companies).enter().append('text').attr('class', 'indicator-row-two' + count).attr('text-anchor', 'middle').attr('font-size', '14px').attr('fill', d => d.color).attr('y', 20).attr('x', (d, innerndicatorIndex) => {
         count++; // return xScale(dt.cumulative)! + xScale(dt.metricpossiblevalues)! / 2 + (count  + innerndicatorIndex * 10);
 
-        return getXAsPerOriginalData(dt, count, innerndicatorIndex);
+        return getXAsPerOriginalData(dt, count, dtIndex, innerndicatorIndex);
       }).text(d => '▼');
     }); // add the labels below bar
 
@@ -317,7 +337,8 @@ export default function SupersetBulletChartV7(props) {
   var setCheckboxes = () => {
     return uniqueCompanies.map((data, index) => {
       return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-        className: "checkbox-container"
+        className: "checkbox-container",
+        key: index
       }, /*#__PURE__*/React.createElement("span", {
         className: "square",
         style: {

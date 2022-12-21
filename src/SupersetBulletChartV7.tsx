@@ -121,10 +121,14 @@ const Styles = styled.div<SupersetBulletChartV7StylesProps>`
 export default function SupersetBulletChartV7(props: SupersetBulletChartV7Props) {
   // height and width are the height and width of the DOM element as it exists in the dashboard.
   // There is also a `data` prop, which is, of course, your DATA 🎉
-  const { data, height, width, colorScheme, bulletColorScheme } = props;
+  const { data, height, width, colorScheme, bulletColorScheme, orderDesc } = props;
   let dataToRender: any;
+  let dataToRenderOne: any;
   const rootElem = createRef<HTMLDivElement>();
-
+  // console.log('props', props);
+ orderDesc
+    ? data.sort((a: any, b: any) => b.orderby - a.orderby)
+    :  data.sort((a: any, b: any) => a.orderby - b.orderby);
   // custom colors theme
   let customColors: string[];
   const colorsValues = categorialSchemeRegistry.values();
@@ -143,6 +147,31 @@ export default function SupersetBulletChartV7(props: SupersetBulletChartV7Props)
   if (findLegendColorScheme[0]) {
     legendBulletColor = [...findLegendColorScheme[0].colors];
   }
+
+  legendBulletColor = [
+    '#FAE849',
+    '#CDDA47',
+    '#92C557',
+    '#58B25C',
+    '#139C8F',
+    '#13BED4',
+    '#15ACF1',
+    '#329CF0',
+    '#4D5DB8',
+    '#7047B9',
+    '#A136B3',
+    '#E72F6E',
+    '#F14F43',
+    '#FB6131',
+    '#FB9E14',
+    '#FBC319',
+    '#006262',
+    '#004242',
+    '#536872',
+    '#6E7F80',
+    '#838996',
+    '#8DA399'
+  ];
 
   // find records having percentage less than 5
   function findMaricPossibleLessThanFive(data: any) {
@@ -182,6 +211,7 @@ export default function SupersetBulletChartV7(props: SupersetBulletChartV7Props)
           metricvalue: umv.metricvalue,
           company: umv.company,
           period: umv.period,
+          orderby: umv.orderby,
           cumulative: cumulative - umv.metricpossiblevalues,
           companies: uniqueCompanyValues.filter((ucv: any) => ucv.metricvalue === umv.metricvalue)
         }, ...{ metricpossiblevalues: uniqueCompanyValues.filter((ucv: any) => ucv.metricvalue === umv.metricvalue).length }
@@ -201,6 +231,7 @@ export default function SupersetBulletChartV7(props: SupersetBulletChartV7Props)
           metricvalue: d.metricvalue,
           company: d.company,
           period: d.period,
+          orderby: d.orderby,
           companies: d.companies,
           metricpossible: d.metricpossiblevalues,
           percent: ((d.metricpossiblevalues / total) * 100).toFixed(2),
@@ -226,13 +257,15 @@ export default function SupersetBulletChartV7(props: SupersetBulletChartV7Props)
   useEffect(() => {
     // const root = rootElem.current as HTMLElement;
     d3.select('#graphic').selectAll('svg').remove();
+    d3.select('#graphic').selectAll('.checkboxes').remove();
    /*  d3.selectAll('input').remove();
     d3.selectAll('span').remove();
     d3.selectAll('label').remove(); */
     dataToRender = [...calculatedData];
+    console.log('dataToRender, dataToRender', dataToRender, dataToRender);
     render(dataToRender, dataToRender);
     selected = true;
-  }, [props, data, height, width, colorScheme, bulletColorScheme, dataToRender]);
+  }, [props, data, height, width, colorScheme, bulletColorScheme]);
 
   const records = addYearToRecord(props.data);
   let uniqueCompanies = createUniqueArray(records, 'company');
@@ -268,10 +301,12 @@ export default function SupersetBulletChartV7(props: SupersetBulletChartV7Props)
     const totalOriginal = d3.sum(_data, (d: any) => d.metricpossiblevalues);
     const calculatedData = calculateData(updatedData, total);
     const calculatedDataOriginal = calculateData(_data, totalOriginal);
-    const indicatorData = [...calculatedData];
-    const calculatedDataOriginalCopy = [...calculatedDataOriginal];
+    dataToRenderOne = [...calculatedData];
+    dataToRender = [...calculatedDataOriginal];
     d3.select('#graphic').selectAll('svg').remove();
-    render(calculatedDataOriginalCopy, indicatorData);
+    d3.select('#graphic').selectAll('.checkboxes').remove();
+    // console.log('dataToRender, dataToRenderOne', dataToRender, dataToRenderOne);
+    render(dataToRender, dataToRenderOne);
   }
 
   // add remove company from data on checkbox update
@@ -367,10 +402,15 @@ export default function SupersetBulletChartV7(props: SupersetBulletChartV7Props)
       });
     };
 
-    
-    const getXAsPerOriginalData = (dt: any, count: any, innerndicatorIndex: any) => {
+    let previousWidth = 0;
+    const getXAsPerOriginalData = (dt: any, count: any, dtIndex: any, innerndicatorIndex: any) => {
       const filteredValue = data.filter((d: any) => d.metricvalue === dt.metricvalue);
-      return Math.abs((xScale(filteredValue[0].cumulative)! + xScale(filteredValue[0].metricpossiblevalues)! / 2) + (count + innerndicatorIndex * 10));
+      const x = Math.abs((xScale(filteredValue[0].cumulative)! + xScale(filteredValue[0].metricpossiblevalues)! / 2));
+      previousWidth = x;
+      if (previousWidth !== x) {
+        previousWidth = x;
+      }
+      return x + (innerndicatorIndex * 10);
       // return (xScale(dt.cumulative)! + xScale(dt.metricpossiblevalues)! / 2) + (count  + (innerndicatorIndex * 10));
     }
 
@@ -396,7 +436,7 @@ export default function SupersetBulletChartV7(props: SupersetBulletChartV7Props)
       .enter()
       .append('rect')
       .attr('class', 'rect-stacked')
-      .attr('x', (d: any) => xScale(d.cumulative)! - 12)
+      .attr('x', (d: any) => xScale(d.cumulative)!)
       .attr('y', 20)
       .attr('height', config.barHeight)
       .attr('width', (d: any) => xScale(d.metricpossiblevalues)!)
@@ -424,7 +464,7 @@ export default function SupersetBulletChartV7(props: SupersetBulletChartV7Props)
           (d: any, innerndicatorIndex: number) => {
             count++;
             // return xScale(dt.cumulative)! + xScale(dt.metricpossiblevalues)! / 2 + (count  + innerndicatorIndex * 10);
-            return getXAsPerOriginalData(dt, count, innerndicatorIndex);
+            return getXAsPerOriginalData(dt, count, dtIndex, innerndicatorIndex);
           },
         )
         .text((d: any) => '▼');
@@ -456,7 +496,7 @@ export default function SupersetBulletChartV7(props: SupersetBulletChartV7Props)
     return(
       uniqueCompanies.map((data: any, index: number) => {
         return (<div>
-          <label className="checkbox-container">
+          <label className="checkbox-container" key={index}>
             <span className='square' style={{ backgroundColor: data.color }}></span>
             <input type="checkbox" className='checkboxes' id={'myCheckbox' + index} data-tag={data.company}  value={data.selected} defaultChecked={data.selected} /> {data.company}
             <span className="checkmark"></span>
